@@ -1,0 +1,32 @@
+# docker-compose.yml — Orchestration Docker pour Mac
+# ─────────────────────────────────────────────────────
+# Commande : docker compose up --build
+# ─────────────────────────────────────────────────────
+
+version: "3.9"
+
+services:
+  bibliotheque:
+    build: .                        # Utilise le Dockerfile dans le dossier courant
+    image: bibliotheque-ia:latest
+    container_name: bibliotheque_ia
+
+    environment:
+      # Affichage X11 via XQuartz (Mac)
+      - DISPLAY=host.docker.internal:0
+      # Clé API Gemini — optionnelle, remplacez par votre vraie clé
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+
+    volumes:
+      # Persistance de la base de données SQLite
+      # Le fichier library.db reste sur votre Mac même après arrêt du container
+      - ./data:/app/data
+      # Accès au socket X11 pour l'affichage (Mac avec XQuartz)
+      - /tmp/.X11-unix:/tmp/.X11-unix
+
+    extra_hosts:
+      # Permet au container de voir "host.docker.internal" → votre Mac
+      - "host.docker.internal:host-gateway"
+
+    stdin_open: true
+    tty: true
