@@ -19,10 +19,9 @@ from services.book_service import BookService
 from chatbot.ai_assistant import AIAssistant
 
 
-# ─── Thème global de l'application ────────────────────────────────────────────
-# "dark" = mode sombre activé par défaut
+# "light" = mode clair façon Apple par défaut
 # "blue" = palette de couleurs bleue
-ctk.set_appearance_mode("dark")
+ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("blue")
 
 
@@ -44,22 +43,58 @@ class BibliothequeApp(ctk.CTk):
         self.book_service = BookService()
         self.ai_assistant = AIAssistant()
 
+        # Stockage de l'utilisateur courant
+        self.current_user = None
+
         # Construction de l'interface
         self._build_layout()
+
+        # Au démarrage, on cache le contenu principal et on affiche le login
+        self._show_auth_frame()
+
+    def _show_auth_frame(self):
+        """Affiche l'écran de connexion et masque le reste."""
+        self.current_user = None
+        self.sidebar.grid_remove()
+        self.content.grid_remove()
+
+        if hasattr(self, 'auth_frame'):
+            self.auth_frame.destroy()
+
+        from ui.auth_frame import AuthFrame
+        self.auth_frame = AuthFrame(self, on_login_success=self._on_login_success)
+        self.auth_frame.grid(row=0, column=0, columnspan=2, sticky="nsew")
+
+    def _on_login_success(self, user_info: dict):
+        """Callback appelé quand l'utilisateur se connecte avec succès."""
+        self.current_user = user_info
+        self.auth_frame.destroy()
+        self.sidebar.grid()
+        self.content.grid()
+        self._update_sidebar_for_user()
         self._show_frame("books")
+
+    def _update_sidebar_for_user(self):
+        """Met à jour la sidebar selon le rôle utilisateur."""
+        if not self.current_user:
+            return
+
+        is_admin = self.current_user.get('role') == 'admin'
+
+        if is_admin and hasattr(self, 'admin_button'):
+            self.admin_button.grid(row=10, column=0, padx=10, pady=(0, 10), sticky="ew")
+        elif hasattr(self, 'admin_button'):
+            self.admin_button.grid_remove()
 
     def _build_layout(self):
         """
         Crée la structure principale : sidebar + zone de contenu.
-        
-        grid() avec columnconfigure(weight=1) → la colonne 1 (contenu)
-        prend tout l'espace restant. La colonne 0 (sidebar) reste fixe.
         """
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
         # ── Sidebar ─────────────────────────────────────────────
-        self.sidebar = ctk.CTkFrame(self, width=200, corner_radius=0)
+        self.sidebar = ctk.CTkFrame(self, width=200, corner_radius=0, fg_color=("gray95", "gray15"))
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_rowconfigure(10, weight=1)  # Pousse le bas vers le bas
 
@@ -89,12 +124,27 @@ class BibliothequeApp(ctk.CTk):
                 text=label,
                 anchor="w",
                 height=40,
+                corner_radius=8,
                 fg_color="transparent",
                 text_color=("gray10", "gray90"),
-                hover_color=("gray70", "gray30"),
+                hover_color=("gray85", "gray25"),
                 command=lambda fn=frame_name: self._show_frame(fn)
             )
             btn.grid(row=i + 2, column=0, padx=10, pady=4, sticky="ew")
+
+        # Bouton admin (caché par défaut, affiché si l'utilisateur est admin)
+        self.admin_button = ctk.CTkButton(
+            self.sidebar,
+            text="👨‍💼  Admin",
+            anchor="w",
+            height=35,
+            corner_radius=8,
+            fg_color="transparent",
+            text_color="#FF9500",
+            hover_color=("gray85", "gray25"),
+            command=self._open_admin_panel
+        )
+        self.admin_button.grid_remove()
 
         # Bouton paramètres API en bas
         ctk.CTkButton(
@@ -102,11 +152,25 @@ class BibliothequeApp(ctk.CTk):
             text="⚙️  Clé API",
             anchor="w",
             height=35,
+            corner_radius=8,
             fg_color="transparent",
             text_color="gray60",
-            hover_color=("gray70", "gray30"),
+            hover_color=("gray85", "gray25"),
             command=self._open_api_settings
-        ).grid(row=11, column=0, padx=10, pady=(0, 20), sticky="ew")
+        ).grid(row=11, column=0, padx=10, pady=(0, 10), sticky="ew")
+
+        # Bouton déconnexion
+        ctk.CTkButton(
+            self.sidebar,
+            text="🚪  Déconnexion",
+            anchor="w",
+            height=35,
+            corner_radius=8,
+            fg_color="transparent",
+            text_color="#d9534f",
+            hover_color=("gray85", "gray25"),
+            command=self._show_auth_frame
+        ).grid(row=12, column=0, padx=10, pady=(0, 20), sticky="ew")
 
         # ── Zone de contenu principal ────────────────────────────
         self.content = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -120,7 +184,7 @@ class BibliothequeApp(ctk.CTk):
         from ui.chat_frame import ChatFrame
         from ui.stats_frame import StatsFrame
 
-        self.frames["books"] = BooksFrame(self.content, self.book_service)
+        self.frames["books"] = BooksFrame(self.content, self.book_service, self)
         self.frames["chat"]  = ChatFrame(self.content, self.ai_assistant)
         self.frames["stats"] = StatsFrame(self.content, self.book_service)
 
@@ -140,12 +204,41 @@ class BibliothequeApp(ctk.CTk):
             if hasattr(frame, "refresh"):
                 frame.refresh()
 
+    def _open_admin_panel(self):
+        """Ouvre le panneau d'administration."""
+        if not self.current_user or self.current_user.get('role') != 'admin':
+            self._show_error_dialog("Accès refusé", "Vous n'avez pas les permissions d'administrateur.")
+            return
+
+        from ui.admin_frame import AdminFrame
+
+        admin_window = ctk.CTkToplevel(self)
+        admin_window.title("Panneau d'Administration")
+        admin_window.geometry("800x600")
+        admin_window.grab_set()
+
+        admin_frame = AdminFrame(admin_window, self.current_user)
+        admin_frame.pack(fill="both", expand=True)
+
+    def _show_error_dialog(self, title: str, message: str):
+        """Affiche une boîte de dialogue d'erreur."""
+        dialog = ctk.CTkToplevel(self)
+        dialog.title(title)
+        dialog.geometry("400x150")
+        dialog.grab_set()
+
+        ctk.CTkLabel(dialog, text=title, font=ctk.CTkFont(size=14, weight="bold")).pack(pady=(20, 10))
+        ctk.CTkLabel(dialog, text=message, text_color="gray60", wraplength=350).pack(pady=(0, 20))
+        ctk.CTkButton(dialog, text="OK", command=dialog.destroy).pack()
+
     def _open_api_settings(self):
         """Ouvre une fenêtre popup pour configurer la clé API Gemini."""
+        from database.db_manager import DatabaseManager
+
         dialog = ctk.CTkToplevel(self)
         dialog.title("Configuration API Gemini")
         dialog.geometry("450x200")
-        dialog.grab_set()  # Bloque la fenêtre principale
+        dialog.grab_set()
 
         ctk.CTkLabel(dialog, text="Clé API Google Gemini",
                      font=ctk.CTkFont(size=14, weight="bold")
@@ -157,16 +250,19 @@ class BibliothequeApp(ctk.CTk):
                      ).pack()
 
         entry = ctk.CTkEntry(dialog, width=380, placeholder_text="AIza...",
-                             show="*")  # Masque la clé comme un mot de passe
+                             show="*")
         entry.pack(pady=15)
 
-        # Pré-rempli si une clé existe déjà
-        if self.ai_assistant.api_key:
-            entry.insert(0, self.ai_assistant.api_key)
+        db = DatabaseManager()
+        api_key = db.get_api_key("gemini")
+        if api_key:
+            entry.insert(0, api_key)
 
         def save():
             key = entry.get().strip()
-            self.ai_assistant.set_api_key(key)
+            if key:
+                db.set_api_key("gemini", key)
+                self.ai_assistant.set_api_key(key)
             dialog.destroy()
 
         ctk.CTkButton(dialog, text="Enregistrer", command=save).pack()

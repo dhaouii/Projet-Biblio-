@@ -18,11 +18,20 @@ class BooksFrame(ctk.CTkFrame):
     Hérite de ctk.CTkFrame — c'est un widget conteneur.
     """
 
-    def __init__(self, parent, book_service: BookService):
+    def __init__(self, parent, book_service: BookService, parent_app=None):
         super().__init__(parent, corner_radius=0, fg_color="transparent")
         self.book_service = book_service
-        self.selected_book_id = None  # ID du livre sélectionné dans le tableau
+        self.selected_book_id = None
+        self.parent_app = parent_app
+        self.admin_buttons = []
         self._build()
+
+    @property
+    def is_admin(self):
+        """Vérifie si l'utilisateur courant est admin."""
+        if self.parent_app and hasattr(self.parent_app, 'current_user'):
+            return self.parent_app.current_user and self.parent_app.current_user.get('role') == 'admin'
+        return False
 
     def _build(self):
         """Construit tous les widgets de cette frame."""
@@ -40,17 +49,18 @@ class BooksFrame(ctk.CTkFrame):
 
         # Barre de recherche
         self.search_var = ctk.StringVar()
-        # self.search_var.trace("w", self._on_search) 
         search_entry = ctk.CTkEntry(header, textvariable=self.search_var,
                                     placeholder_text="🔍 Rechercher et appuyez sur Entrée...",
                                     width=250)
         search_entry.grid(row=0, column=1, padx=20, sticky="e")
         search_entry.bind("<Return>", self._on_search)
-        # Bouton Ajouter
-        ctk.CTkButton(header, text="+ Ajouter un livre",
+
+        # Bouton Ajouter (admin only)
+        self.add_button = ctk.CTkButton(header, text="+ Ajouter un livre",
                       command=self._open_add_dialog,
-                      width=150
-                      ).grid(row=0, column=2)
+                      width=150)
+        self.add_button.grid(row=0, column=2)
+        self.admin_buttons.append(self.add_button)
 
         # ── Tableau des livres ───────────────────────────────────
         table_frame = ctk.CTkFrame(self)
@@ -79,22 +89,28 @@ class BooksFrame(ctk.CTkFrame):
                               command=lambda c=col: self._sort_by(c))
             self.tree.column(col, width=width, anchor="center" if width < 150 else "w")
 
-        # Style sombre pour le tableau
+        # Style minimaliste Apple pour le tableau
         style = ttk.Style()
         style.theme_use("clam")
+        
+        # Le fond est géré automatiquement par ctk, mais on s'assure que le tableau est propre
         style.configure("Treeview",
-                         background="#2b2b2b",
-                         foreground="white",
-                         rowheight=28,
-                         fieldbackground="#2b2b2b",
-                         bordercolor="#3d3d3d",
-                         borderwidth=0)
+                         background="white",
+                         foreground="black",
+                         rowheight=35, # Lignes plus espacées
+                         fieldbackground="white",
+                         bordercolor="#e5e5e5",
+                         borderwidth=0,
+                         font=("Helvetica", 12))
+        
         style.configure("Treeview.Heading",
-                         background="#1f538d",
-                         foreground="white",
-                         relief="flat")
+                         background="#f5f5f7",
+                         foreground="gray40",
+                         relief="flat",
+                         font=("Helvetica", 12, "bold"))
+                         
         style.map("Treeview",
-                  background=[("selected", "#1f538d")],
+                  background=[("selected", "#0A84FF")], # Bleu Apple
                   foreground=[("selected", "white")])
 
         # Scrollbar verticale
@@ -113,25 +129,55 @@ class BooksFrame(ctk.CTkFrame):
         actions = ctk.CTkFrame(self, fg_color="transparent")
         actions.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 15))
 
-        ctk.CTkButton(actions, text="✏️ Modifier",
+        # Admin-only buttons (created but visibility managed dynamically)
+        self.edit_button = ctk.CTkButton(actions, text="✏️ Modifier",
                       command=self._open_edit_dialog,
-                      fg_color="#2d7a2d", hover_color="#1f5a1f"
-                      ).pack(side="left", padx=5)
+                      fg_color="transparent", text_color="#0A84FF",
+                      hover_color=("gray90", "gray20"),
+                      border_width=1, border_color="#0A84FF",
+                      corner_radius=8)
+        self.edit_button.pack(side="left", padx=5)
+        self.admin_buttons.append(self.edit_button)
 
-        ctk.CTkButton(actions, text="🗑 Supprimer",
+        self.delete_button = ctk.CTkButton(actions, text="🗑 Supprimer",
                       command=self._delete_selected,
-                      fg_color="#8b0000", hover_color="#5c0000"
-                      ).pack(side="left", padx=5)
+                      fg_color="transparent", text_color="#ff3b30",
+                      hover_color=("gray90", "gray20"),
+                      border_width=1, border_color="#ff3b30",
+                      corner_radius=8)
+        self.delete_button.pack(side="left", padx=5)
+        self.admin_buttons.append(self.delete_button)
+
+        self.readonly_label = ctk.CTkLabel(actions, text="📖 Lecture seule - Les admins peuvent modifier les livres",
+                         text_color="gray60", font=ctk.CTkFont(size=11))
+        self.readonly_label.pack(side="left", padx=5)
 
         # Compteur de livres affichés
         self.count_label = ctk.CTkLabel(actions, text="", text_color="gray60")
         self.count_label.pack(side="right")
 
+        # Mise à jour de la visibilité
+        self._update_admin_visibility()
+
         # Chargement initial des données
         self.refresh()
 
+    def _update_admin_visibility(self):
+        """Met à jour la visibilité des boutons admin."""
+        if self.is_admin:
+            self.add_button.grid()
+            self.edit_button.pack(side="left", padx=5)
+            self.delete_button.pack(side="left", padx=5)
+            self.readonly_label.pack_forget()
+        else:
+            self.add_button.grid_remove()
+            self.edit_button.pack_forget()
+            self.delete_button.pack_forget()
+            self.readonly_label.pack(side="left", padx=5)
+
     def refresh(self):
         """Recharge les données depuis la base et met à jour le tableau."""
+        self._update_admin_visibility()
         query = self.search_var.get() if hasattr(self, "search_var") else ""
         books = (self.book_service.search_books(query) if query
                  else self.book_service.get_all_books())
@@ -144,38 +190,32 @@ class BooksFrame(ctk.CTkFrame):
         On efface d'abord toutes les lignes (delete(*children))
         puis on réinsère — approche simple et fiable.
         """
-        # Efface toutes les lignes existantes
+        # On efface toutes les lignes existantes
         for row in self.tree.get_children():
             self.tree.delete(row)
 
-        # Couleurs selon le statut
-        tag_colors = {
-            "disponible": "#2d7a2d",
-            "emprunté":   "#8b4513",
-            "réservé":    "#1a4a7a",
+        # Statuts avec Emojis pour le minimalisme (Apple UI style)
+        status_formatting = {
+            "disponible": "🟢 Disponible",
+            "emprunté":   "🔴 Emprunté",
+            "réservé":    "🟡 Réservé",
         }
 
-        for book in books:
-            tag = book.statut
+        for i, book in enumerate(books):
+            formatted_status = status_formatting.get(book.statut, book.statut)
+            
+            # Alternance de couleurs subtile (zebra striping) pour lisibilité
+            tag = "even" if i % 2 == 0 else "odd"
+            
             self.tree.insert("", "end",
                              values=(book.id, book.titre, book.auteur,
                                      book.categorie, book.annee,
-                                     book.quantite, book.statut),
+                                     book.quantite, formatted_status),
                              tags=(tag,))
 
-        # Applique les couleurs de fond selon le statut
-        # Couleurs de fond pastel adaptées à chaque statut
-        status_backgrounds = {
-            "Disponible": "#e6f4ea",      # Vert clair
-            "Emprunté": "#feeeee",        # Rouge clair
-            "En retard": "#fef7e0",       # Jaune clair
-            "Réservé": "#e8f0fe"          # Bleu clair
-        }
-
-        # Applique les couleurs de fond selon le statut
-        for status, color in tag_colors.items():
-            bg_color = status_backgrounds.get(status, color)
-            self.tree.tag_configure(status, background=bg_color)
+        # Couleurs de fond alternées (très subtil)
+        self.tree.tag_configure("even", background="#ffffff") # Blanc pur
+        self.tree.tag_configure("odd", background="#f9f9f9")  # Gris très très clair
 
         count = len(books)
         self.count_label.configure(text=f"{count} livre{'s' if count > 1 else ''} affiché{'s' if count > 1 else ''}")
@@ -211,6 +251,16 @@ class BooksFrame(ctk.CTkFrame):
         if confirmed:
             success, msg = self.book_service.delete_book(self.selected_book_id)
             if success:
+                if self.parent_app and hasattr(self.parent_app, 'current_user'):
+                    from database.db_manager import DatabaseManager
+                    db = DatabaseManager()
+                    db.log_activity(
+                        self.parent_app.current_user['id'],
+                        'delete_book',
+                        'book',
+                        self.selected_book_id,
+                        f"Suppression du livre {self.selected_book_id}"
+                    )
                 messagebox.showinfo("Succès", msg)
                 self.selected_book_id = None
                 self.refresh()
@@ -220,7 +270,7 @@ class BooksFrame(ctk.CTkFrame):
     def _open_add_dialog(self):
         """Ouvre le formulaire d'ajout de livre."""
         BookFormDialog(self, self.book_service, mode="add",
-                       on_success=self.refresh)
+                       on_success=self.refresh, parent_app=self.parent_app)
 
     def _open_edit_dialog(self):
         """Ouvre le formulaire de modification avec les données existantes."""
@@ -229,7 +279,7 @@ class BooksFrame(ctk.CTkFrame):
             return
         BookFormDialog(self, self.book_service, mode="edit",
                        book_id=self.selected_book_id,
-                       on_success=self.refresh)
+                       on_success=self.refresh, parent_app=self.parent_app)
 
 
 class BookFormDialog(ctk.CTkToplevel):
@@ -244,12 +294,13 @@ class BookFormDialog(ctk.CTkToplevel):
     """
 
     def __init__(self, parent, book_service: BookService,
-                 mode="add", book_id=None, on_success=None):
+                 mode="add", book_id=None, on_success=None, parent_app=None):
         super().__init__(parent)
         self.book_service = book_service
         self.mode = mode
         self.book_id = book_id
         self.on_success = on_success
+        self.parent_app = parent_app
 
         title = "Ajouter un livre" if mode == "add" else "Modifier le livre"
         self.title(title)
@@ -325,11 +376,31 @@ class BookFormDialog(ctk.CTkToplevel):
                 data["titre"], data["auteur"], data["categorie"],
                 data["annee"], data["quantite"], data["statut"]
             )
+            if success and self.parent_app and hasattr(self.parent_app, 'current_user'):
+                from database.db_manager import DatabaseManager
+                db = DatabaseManager()
+                db.log_activity(
+                    self.parent_app.current_user['id'],
+                    'add_book',
+                    'book',
+                    None,
+                    f"Ajout du livre '{data['titre']}' par {data['auteur']}"
+                )
         else:
             success, msg = self.book_service.update_book(
                 self.book_id, data["titre"], data["auteur"], data["categorie"],
                 data["annee"], data["quantite"], data["statut"]
             )
+            if success and self.parent_app and hasattr(self.parent_app, 'current_user'):
+                from database.db_manager import DatabaseManager
+                db = DatabaseManager()
+                db.log_activity(
+                    self.parent_app.current_user['id'],
+                    'update_book',
+                    'book',
+                    self.book_id,
+                    f"Modification du livre '{data['titre']}'"
+                )
 
         if success:
             messagebox.showinfo("Succès", msg)

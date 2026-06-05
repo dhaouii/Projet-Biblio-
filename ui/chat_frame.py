@@ -42,7 +42,7 @@ class ChatFrame(ctk.CTkFrame):
             header,
             text="● Sans clé API (mode hors-ligne)" if not self.ai_assistant.is_configured
                  else "● Connecté à Gemini",
-            text_color="gray" if not self.ai_assistant.is_configured else "#2d7a2d",
+            text_color="gray" if not self.ai_assistant.is_configured else "#34C759",
             font=ctk.CTkFont(size=12)
         )
         self.status_label.pack(side="right")
@@ -78,6 +78,7 @@ class ChatFrame(ctk.CTkFrame):
             text="Envoyer",
             width=100,
             height=45,
+            corner_radius=10,
             command=self._send_message
         )
         self.send_btn.grid(row=0, column=1)
@@ -99,11 +100,11 @@ class ChatFrame(ctk.CTkFrame):
                 suggestions_frame,
                 text=suggestion,
                 height=28,
-                fg_color="transparent",
-                border_width=1,
-                border_color="gray40",
-                text_color="gray70",
-                hover_color=("gray80", "gray30"),
+                corner_radius=14,
+                fg_color=("#f0f0f5", "gray25"),
+                border_width=0,
+                text_color=("gray30", "gray70"),
+                hover_color=("#e0e0ea", "gray35"),
                 font=ctk.CTkFont(size=11),
                 command=lambda s=suggestion: self._use_suggestion(s)
             ).pack(side="left", padx=3)
@@ -185,7 +186,7 @@ class ChatFrame(ctk.CTkFrame):
         """Met à jour l'indicateur de statut API."""
         if self.ai_assistant.is_configured:
             self.status_label.configure(text="● Connecté à Gemini",
-                                         text_color="#2d7a2d")
+                                         text_color="#34C759")
         else:
             self.status_label.configure(text="● Mode hors-ligne",
                                          text_color="gray")

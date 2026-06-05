@@ -39,13 +39,22 @@ Tu peux répondre à :
 """
 
     def __init__(self, api_key: str = None):
-        """Initialise le chatbot et force l'utilisation de la clé valide."""
-        self.api_key = "AIzaSyCpBASEss_v8gD4AGMLt3UWiw5B60ylvCo"
+        """Initialise le chatbot en chargeant la clé API de la base de données."""
+        from database.db_manager import DatabaseManager
+
+        self.db = DatabaseManager()
+
+        if api_key:
+            self.api_key = api_key
+        else:
+            self.api_key = self.db.get_api_key("gemini")
+            if not self.api_key:
+                self.api_key = "AIzaSyCpBASEss_v8gD4AGMLt3UWiw5B60ylvCo"
+
         self.book_service = BookService()
         self.model = None
         self.is_configured = False
 
-        # Lancement immédiat de la configuration
         self._configure()
 
     def _configure(self):
@@ -61,20 +70,18 @@ Tu peux répondre à :
             self.is_configured = False
 
     def set_api_key(self, api_key: str):
-        """Verrouille et empêche l'interface d'écraser la clé avec du texte vide."""
-        self.api_key = "AIzaSyCpBASEss_v8gD4AGMLt3UWiw5B60ylvCo"
-        self._configure()
+        """Met à jour la clé API."""
+        if api_key and api_key.strip():
+            self.api_key = api_key.strip()
+            self._configure()
 
     def ask(self, question: str) -> str:
         """Pose une question au chatbot Gemini et gère la connexion en temps réel."""
         if not question.strip():
             return "Je n'ai pas reçu de question. Pouvez-vous reformuler ?"
 
-        # Sécurité : Si l'interface a forcé un état non configuré, on rétablit la connexion
         if not self.is_configured or self.model is None:
-            self.api_key = "AIzaSyCpBASEss_v8gD4AGMLt3UWiw5B60ylvCo"
             self._configure()
-            self.is_configured = True
 
         # Récupération des données SQLite fraîches de la bibliothèque
         context = self.book_service.get_context_for_chatbot()

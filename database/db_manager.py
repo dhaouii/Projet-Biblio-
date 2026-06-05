@@ -58,7 +58,7 @@ class DatabaseManager:
         'INTEGER PRIMARY KEY AUTOINCREMENT' = SQLite génère
         automatiquement un ID unique pour chaque nouveau livre.
         """
-        sql_create = """
+        sql_create_books = """
         CREATE TABLE IF NOT EXISTS livres (
             id                INTEGER PRIMARY KEY AUTOINCREMENT,
             titre             TEXT    NOT NULL,
@@ -67,6 +67,40 @@ class DatabaseManager:
             annee_publication INTEGER NOT NULL,
             quantite          INTEGER DEFAULT 1,
             statut            TEXT    DEFAULT 'disponible'
+        );
+        """
+
+        sql_create_users = """
+        CREATE TABLE IF NOT EXISTS utilisateurs (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            username          TEXT    NOT NULL UNIQUE,
+            password_hash     TEXT    NOT NULL,
+            role              TEXT    NOT NULL DEFAULT 'user',
+            created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+
+        sql_create_api_keys = """
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            key_type          TEXT    NOT NULL,
+            key_value         TEXT    NOT NULL,
+            is_active         BOOLEAN DEFAULT 1,
+            created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+
+        sql_create_activity_logs = """
+        CREATE TABLE IF NOT EXISTS activity_logs (
+            id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id           INTEGER,
+            action            TEXT    NOT NULL,
+            resource_type     TEXT,
+            resource_id       INTEGER,
+            details           TEXT,
+            created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES utilisateurs(id)
         );
         """
 
@@ -88,10 +122,23 @@ class DatabaseManager:
         WHERE NOT EXISTS (SELECT 1 FROM livres LIMIT 1);
         """
 
+        sql_demo_users = """
+        INSERT INTO utilisateurs (username, password_hash, role)
+        SELECT * FROM (VALUES
+            ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin'),
+            ('user', '04f8996da763b7a969b1028ee3007569eaf3a635486ddab211d512c85b9df8fb', 'user')
+        )
+        WHERE NOT EXISTS (SELECT 1 FROM utilisateurs LIMIT 1);
+        """
+
         conn = self._connect()
         cursor = conn.cursor()
-        cursor.execute(sql_create)
+        cursor.execute(sql_create_books)
+        cursor.execute(sql_create_users)
+        cursor.execute(sql_create_api_keys)
+        cursor.execute(sql_create_activity_logs)
         cursor.executescript(sql_demo_data)
+        cursor.executescript(sql_demo_users)
         conn.commit()
         conn.close()
 
@@ -245,3 +292,145 @@ class DatabaseManager:
         rows = conn.execute(sql).fetchall()
         conn.close()
         return [row[0] for row in rows]
+
+    # ─── USERS ────────────────────────────────────────────────────────────────
+
+    def add_user(self, username: str, password_hash: str) -> int | None:
+        """
+        Ajoute un nouvel utilisateur.
+        Retourne l'ID si succès, None si le nom d'utilisateur existe déjà.
+        """
+        sql = "INSERT INTO utilisateurs (username, password_hash) VALUES (?, ?)"
+        conn = self._connect()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(sql, (username, password_hash))
+            conn.commit()
+            new_id = cursor.lastrowid
+            return new_id
+        except sqlite3.IntegrityError:
+            # Username existe déjà
+            return None
+        finally:
+            conn.close()
+
+    def get_user_by_username(self, username: str) -> dict | None:
+        """Recherche un utilisateur par son nom d'utilisateur."""
+        sql = "SELECT * FROM utilisateurs WHERE username = ?"
+        conn = self._connect()
+        row = conn.execute(sql, (username,)).fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    def get_user_by_id(self, user_id: int) -> dict | None:
+        """Recherche un utilisateur par son ID."""
+        sql = "SELECT id, username, role, created_at FROM utilisateurs WHERE id = ?"
+        conn = self._connect()
+        row = conn.execute(sql, (user_id,)).fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    def get_all_users(self) -> list[dict]:
+        """Retourne la liste de tous les utilisateurs."""
+        sql = "SELECT id, username, role, created_at FROM utilisateurs ORDER BY username"
+        conn = self._connect()
+        rows = conn.execute(sql).fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    def get_user_count(self) -> int:
+        """Retourne le nombre total d'utilisateurs."""
+        sql = "SELECT COUNT(*) FROM utilisateurs"
+        conn = self._connect()
+        count = conn.execute(sql).fetchone()[0]
+        conn.close()
+        return count
+
+    def update_user_role(self, user_id: int, role: str) -> bool:
+        """Met à jour le rôle d'un utilisateur."""
+        sql = "UPDATE utilisateurs SET role = ? WHERE id = ?"
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute(sql, (role, user_id))
+        conn.commit()
+        affected = cursor.rowcount
+        conn.close()
+        return affected > 0
+
+    def delete_user(self, user_id: int) -> bool:
+        """Supprime un utilisateur et ses logs associés."""
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM activity_logs WHERE user_id = ?", (user_id,))
+        cursor.execute("DELETE FROM utilisateurs WHERE id = ?", (user_id,))
+        conn.commit()
+        affected = cursor.rowcount
+        conn.close()
+        return affected > 0
+
+    # ─── API KEYS ──────────────────────────────────────────────────────────────
+
+    def set_api_key(self, key_type: str, key_value: str) -> bool:
+        """Enregistre ou met à jour une clé API."""
+        conn = self._connect()
+        cursor = conn.cursor()
+
+        existing = cursor.execute(
+            "SELECT id FROM api_keys WHERE key_type = ?",
+            (key_type,)
+        ).fetchone()
+
+        if existing:
+            cursor.execute(
+                "UPDATE api_keys SET key_value = ?, updated_at = CURRENT_TIMESTAMP WHERE key_type = ?",
+                (key_value, key_type)
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO api_keys (key_type, key_value) VALUES (?, ?)",
+                (key_type, key_value)
+            )
+
+        conn.commit()
+        conn.close()
+        return True
+
+    def get_api_key(self, key_type: str) -> str | None:
+        """Récupère une clé API par type."""
+        sql = "SELECT key_value FROM api_keys WHERE key_type = ? AND is_active = 1"
+        conn = self._connect()
+        row = conn.execute(sql, (key_type,)).fetchone()
+        conn.close()
+        return row[0] if row else None
+
+    # ─── ACTIVITY LOGS ─────────────────────────────────────────────────────────
+
+    def log_activity(self, user_id: int, action: str, resource_type: str = None,
+                    resource_id: int = None, details: str = None) -> bool:
+        """Enregistre une action utilisateur."""
+        sql = """
+        INSERT INTO activity_logs (user_id, action, resource_type, resource_id, details)
+        VALUES (?, ?, ?, ?, ?)
+        """
+        conn = self._connect()
+        cursor = conn.cursor()
+        cursor.execute(sql, (user_id, action, resource_type, resource_id, details))
+        conn.commit()
+        conn.close()
+        return True
+
+    def get_activity_logs(self, limit: int = 100) -> list[dict]:
+        """Récupère les logs d'activité récents."""
+        sql = """
+        SELECT
+            l.id, l.user_id, u.username, l.action, l.resource_type,
+            l.resource_id, l.details, l.created_at
+        FROM activity_logs l
+        LEFT JOIN utilisateurs u ON l.user_id = u.id
+        ORDER BY l.created_at DESC
+        LIMIT ?
+        """
+        conn = self._connect()
+        rows = conn.execute(sql, (limit,)).fetchall()
+        conn.close()
+        return [dict(row) for row in rows]

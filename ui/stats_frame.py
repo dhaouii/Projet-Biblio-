@@ -39,26 +39,27 @@ class StatsFrame(ctk.CTkFrame):
 
         # ── Cartes de statistiques ───────────────────────────────
         # Chaque carte : (titre, valeur, couleur de fond)
+        # Couleurs Apple : fond pastel + texte accent
         cards = [
-            ("📚 Total livres",   stats["total"],       "#1f538d"),
-            ("✅ Disponibles",    stats["disponibles"], "#2d7a2d"),
-            ("📤 Empruntés",      stats["empruntes"],   "#8b4513"),
-            ("🔖 Réservés",       stats["reserves"],    "#4a3a7a"),
+            ("📚 Total livres",   stats["total"],       ("#e8f0fe", "#1a3d6e"), "#0A84FF"),
+            ("✅ Disponibles",    stats["disponibles"], ("#e6f9ed", "#1a4a2a"), "#34C759"),
+            ("📤 Empruntés",      stats["empruntes"],   ("#fef3e6", "#5a3a10"), "#FF9500"),
+            ("🔖 Réservés",       stats["reserves"],    ("#f3ecfe", "#3a2a6e"), "#AF52DE"),
         ]
 
-        for i, (label, value, color) in enumerate(cards):
-            card = ctk.CTkFrame(self.scroll, fg_color=color, corner_radius=12)
+        for i, (label, value, bg_colors, accent) in enumerate(cards):
+            card = ctk.CTkFrame(self.scroll, fg_color=bg_colors[0], corner_radius=14)
             card.grid(row=0, column=i, padx=8, pady=10, sticky="ew")
 
             ctk.CTkLabel(card, text=str(value),
                          font=ctk.CTkFont(size=36, weight="bold"),
-                         text_color="white"
-                         ).pack(pady=(15, 0))
+                         text_color=accent
+                         ).pack(pady=(20, 0))
 
             ctk.CTkLabel(card, text=label,
                          font=ctk.CTkFont(size=13),
-                         text_color="white"
-                         ).pack(pady=(0, 15))
+                         text_color="gray40"
+                         ).pack(pady=(2, 20))
 
         # ── Livres par catégorie ─────────────────────────────────
         ctk.CTkLabel(self.scroll, text="Livres par catégorie",
@@ -82,8 +83,6 @@ class StatsFrame(ctk.CTkFrame):
             # Barre de progression : ratio disponibles / total
             if len(books) > 0:
                 ratio = available / len(books)
-                ctk.CTkProgressBar(cat_frame, width=150
-                                   ).pack(side="right", padx=15)
-                bar = ctk.CTkProgressBar(cat_frame, width=150)
+                bar = ctk.CTkProgressBar(cat_frame, width=150, progress_color="#0A84FF")
                 bar.set(ratio)
                 bar.pack(side="right", padx=15, pady=10)
