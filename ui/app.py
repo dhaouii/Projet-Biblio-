@@ -82,7 +82,7 @@ class BibliothequeApp(ctk.CTk):
         is_admin = self.current_user.get('role') == 'admin'
 
         if is_admin and hasattr(self, 'admin_button'):
-            self.admin_button.grid(row=10, column=0, padx=10, pady=(0, 10), sticky="ew")
+            self.admin_button.grid()
         elif hasattr(self, 'admin_button'):
             self.admin_button.grid_remove()
 
@@ -96,7 +96,8 @@ class BibliothequeApp(ctk.CTk):
         # ── Sidebar ─────────────────────────────────────────────
         self.sidebar = ctk.CTkFrame(self, width=200, corner_radius=0, fg_color=("gray95", "gray15"))
         self.sidebar.grid(row=0, column=0, sticky="nsew")
-        self.sidebar.grid_rowconfigure(10, weight=1)  # Pousse le bas vers le bas
+        self.sidebar.grid_propagate(False)  # Empêche la sidebar de rétrécir
+        self.sidebar.grid_rowconfigure(9, weight=1)  # Ligne 9 = espace extensible (pousse le bas vers le bas)
 
         # Logo/Titre
         ctk.CTkLabel(
@@ -132,7 +133,7 @@ class BibliothequeApp(ctk.CTk):
             )
             btn.grid(row=i + 2, column=0, padx=10, pady=4, sticky="ew")
 
-        # Bouton admin (caché par défaut, affiché si l'utilisateur est admin)
+        # Bouton admin (ligne 10, caché par défaut, affiché si l'utilisateur est admin)
         self.admin_button = ctk.CTkButton(
             self.sidebar,
             text="👨‍💼  Admin",
@@ -144,9 +145,10 @@ class BibliothequeApp(ctk.CTk):
             hover_color=("gray85", "gray25"),
             command=self._open_admin_panel
         )
+        self.admin_button.grid(row=10, column=0, padx=10, pady=(0, 5), sticky="ew")
         self.admin_button.grid_remove()
 
-        # Bouton paramètres API en bas
+        # Bouton paramètres API (ligne 11)
         ctk.CTkButton(
             self.sidebar,
             text="⚙️  Clé API",
@@ -157,18 +159,19 @@ class BibliothequeApp(ctk.CTk):
             text_color="gray60",
             hover_color=("gray85", "gray25"),
             command=self._open_api_settings
-        ).grid(row=11, column=0, padx=10, pady=(0, 10), sticky="ew")
+        ).grid(row=11, column=0, padx=10, pady=(0, 5), sticky="ew")
 
-        # Bouton déconnexion
+        # Bouton déconnexion (ligne 12)
         ctk.CTkButton(
             self.sidebar,
             text="🚪  Déconnexion",
             anchor="w",
-            height=35,
+            height=40,
             corner_radius=8,
-            fg_color="transparent",
-            text_color="#d9534f",
-            hover_color=("gray85", "gray25"),
+            fg_color="#d9534f",
+            text_color="white",
+            hover_color="#c9302c",
+            font=ctk.CTkFont(weight="bold"),
             command=self._show_auth_frame
         ).grid(row=12, column=0, padx=10, pady=(0, 20), sticky="ew")
 
