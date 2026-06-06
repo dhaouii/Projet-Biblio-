@@ -27,7 +27,8 @@ class BookService:
         self.db = DatabaseManager()
 
     def add_book(self, titre: str, auteur: str, categorie: str,
-                 annee: int, quantite: int, statut: str) -> tuple[bool, str]:
+                 annee: int, quantite: int, statut: str,
+                 image_path: str = None) -> tuple[bool, str]:
         """
         Valide et ajoute un nouveau livre.
         
@@ -66,12 +67,13 @@ class BookService:
         # ── Insertion ───────────────────────────────────────────
         book = Book(titre=titre.strip(), auteur=auteur.strip(),
                     categorie=categorie.strip(), annee=annee,
-                    quantite=quantite, statut=statut)
+                    quantite=quantite, statut=statut, image_path=image_path)
         new_id = self.db.add_book(book)
         return True, f"Livre ajouté avec succès (ID: {new_id})."
 
     def update_book(self, id: int, titre: str, auteur: str, categorie: str,
-                    annee: int, quantite: int, statut: str) -> tuple[bool, str]:
+                    annee: int, quantite: int, statut: str,
+                    image_path: str = None) -> tuple[bool, str]:
         """Valide et met à jour un livre existant."""
         # Même validation que add_book
         if not titre.strip():
@@ -84,7 +86,7 @@ class BookService:
 
         book = Book(id=id, titre=titre.strip(), auteur=auteur.strip(),
                     categorie=categorie.strip(), annee=annee,
-                    quantite=quantite, statut=statut)
+                    quantite=quantite, statut=statut, image_path=image_path)
         success = self.db.update_book(book)
 
         if success:

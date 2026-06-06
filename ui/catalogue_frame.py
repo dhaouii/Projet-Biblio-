@@ -12,7 +12,7 @@ redessiner le reste de l'application.
 
 import customtkinter as ctk
 from services.book_service import BookService
-from ui.icons import get_icon
+from ui.icons import get_icon, load_cover
 
 
 # ── Palette inspirée du design Next.js (Tailwind) ─────────────────────────────
@@ -174,8 +174,13 @@ class CatalogueFrame(ctk.CTkFrame):
         cover.pack()
         cover.pack_propagate(False)
 
-        ctk.CTkLabel(cover, text="", image=get_icon("book", COVER_ICON, 40),
-                     ).place(relx=0.5, rely=0.5, anchor="center")
+        cover_img = load_cover(book.image_path, (COVER_W, COVER_H), radius=14)
+        if cover_img:
+            ctk.CTkLabel(cover, text="", image=cover_img,
+                         ).place(relx=0.5, rely=0.5, anchor="center")
+        else:
+            ctk.CTkLabel(cover, text="", image=get_icon("book", COVER_ICON, 40),
+                         ).place(relx=0.5, rely=0.5, anchor="center")
 
         # Badge de statut (petit point coloré + texte, en haut à droite)
         bg, fg = STATUS_STYLE.get(book.statut, ("#E5E7EB", "#374151"))

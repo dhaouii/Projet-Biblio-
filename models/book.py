@@ -30,7 +30,7 @@ class Book:
     STATUT_RESERVE    = "réservé"
 
     def __init__(self, titre, auteur, categorie, annee, quantite=1,
-                 statut="disponible", id=None):
+                 statut="disponible", id=None, image_path=None):
         """
         Constructeur — crée un objet Book.
         
@@ -45,6 +45,7 @@ class Book:
         self.annee    = annee
         self.quantite = quantite
         self.statut   = statut
+        self.image_path = image_path   # chemin vers la couverture (optionnel)
 
     def to_tuple(self):
         """
@@ -52,7 +53,7 @@ class Book:
         L'ordre correspond exactement aux colonnes de la requête INSERT.
         """
         return (self.titre, self.auteur, self.categorie,
-                self.annee, self.quantite, self.statut)
+                self.annee, self.quantite, self.statut, self.image_path)
 
     @classmethod
     def from_row(cls, row):
@@ -67,7 +68,8 @@ class Book:
         """
         return cls(id=row[0], titre=row[1], auteur=row[2],
                    categorie=row[3], annee=row[4],
-                   quantite=row[5], statut=row[6])
+                   quantite=row[5], statut=row[6],
+                   image_path=row[7] if len(row) > 7 else None)
 
     def __repr__(self):
         """Représentation lisible pour le debug."""

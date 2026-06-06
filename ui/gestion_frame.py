@@ -13,7 +13,7 @@ from tkinter import messagebox
 
 from services.book_service import BookService
 from ui.books_frame import BookFormDialog
-from ui.icons import get_icon
+from ui.icons import get_icon, load_cover
 from ui.catalogue_frame import (
     PAGE_BG, CARD_BG, BORDER, TITLE_CLR, SUBTLE_CLR, MUTED_CLR, ACCENT,
     CHIP_BG, STATUS_STYLE,
@@ -165,8 +165,13 @@ class GestionFrame(ctk.CTkFrame):
                              width=44, height=58)
         cover.grid(row=0, column=0, padx=14, pady=12)
         cover.grid_propagate(False)
-        ctk.CTkLabel(cover, text="", image=get_icon("book", "#BFDBFE", 22),
-                     ).place(relx=0.5, rely=0.5, anchor="center")
+        row_img = load_cover(book.image_path, (44, 58), radius=10)
+        if row_img:
+            ctk.CTkLabel(cover, text="", image=row_img,
+                         ).place(relx=0.5, rely=0.5, anchor="center")
+        else:
+            ctk.CTkLabel(cover, text="", image=get_icon("book", "#BFDBFE", 22),
+                         ).place(relx=0.5, rely=0.5, anchor="center")
 
         # Infos
         info = ctk.CTkFrame(row, fg_color="transparent")

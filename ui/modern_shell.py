@@ -13,7 +13,7 @@ Réutilise les services existants (BookService) et l'écran Catalogue.
 import customtkinter as ctk
 
 from services.book_service import BookService
-from ui.icons import get_icon
+from ui.icons import get_icon, get_logo, load_cover
 from ui.catalogue_frame import (
     CatalogueFrame, PAGE_BG, CARD_BG, BORDER, TITLE_CLR, SUBTLE_CLR,
     MUTED_CLR, ACCENT, STATUS_STYLE,
@@ -69,8 +69,7 @@ class ModernShell(ctk.CTkFrame):
         # Logo : carré bleu arrondi + icône livre blanche au trait
         logo = ctk.CTkFrame(bar, fg_color="transparent")
         logo.grid(row=0, column=0, sticky="ew", padx=20, pady=(24, 18))
-        mark = ctk.CTkLabel(logo, text="", image=get_icon("book", "#FFFFFF", 22),
-                            width=40, height=40, corner_radius=12, fg_color=ACCENT)
+        mark = ctk.CTkLabel(logo, text="", image=get_logo(42), fg_color="transparent")
         mark.pack(side="left")
         box = ctk.CTkFrame(logo, fg_color="transparent")
         box.pack(side="left", padx=10)
@@ -262,8 +261,13 @@ class ModernShell(ctk.CTkFrame):
                              width=150, height=200)
         cover.pack()
         cover.pack_propagate(False)
-        ctk.CTkLabel(cover, text="", image=get_icon("book", "#BFDBFE", 38),
-                     ).place(relx=0.5, rely=0.5, anchor="center")
+        mini_img = load_cover(book.image_path, (150, 200), radius=14)
+        if mini_img:
+            ctk.CTkLabel(cover, text="", image=mini_img,
+                         ).place(relx=0.5, rely=0.5, anchor="center")
+        else:
+            ctk.CTkLabel(cover, text="", image=get_icon("book", "#BFDBFE", 38),
+                         ).place(relx=0.5, rely=0.5, anchor="center")
         bg, fg = STATUS_STYLE.get(book.statut, ("#E5E7EB", "#374151"))
         ctk.CTkLabel(cover, text=f" {book.statut} ", fg_color=bg, text_color=fg,
                      corner_radius=8, font=ctk.CTkFont(size=9, weight="bold"),
@@ -315,8 +319,13 @@ class ModernShell(ctk.CTkFrame):
                              width=170, height=230)
         cover.pack(pady=(4, 18))
         cover.pack_propagate(False)
-        ctk.CTkLabel(cover, text="", image=get_icon("book", "#5C7FC9", 60),
-                     ).place(relx=0.5, rely=0.5, anchor="center")
+        cover_img = load_cover(book.image_path, (170, 230), radius=18)
+        if cover_img:
+            ctk.CTkLabel(cover, text="", image=cover_img,
+                         ).place(relx=0.5, rely=0.5, anchor="center")
+        else:
+            ctk.CTkLabel(cover, text="", image=get_icon("book", "#5C7FC9", 60),
+                         ).place(relx=0.5, rely=0.5, anchor="center")
 
         ctk.CTkLabel(self.panel, text=book.titre, font=ctk.CTkFont(size=17, weight="bold"),
                      text_color="white", wraplength=280).pack(padx=20)

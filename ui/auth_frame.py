@@ -6,6 +6,7 @@ Interface minimaliste de style Apple pour l'authentification.
 
 import customtkinter as ctk
 from services.auth_service import AuthService
+from ui.icons import get_logo
 
 class AuthFrame(ctk.CTkFrame):
     def __init__(self, parent, on_login_success):
@@ -35,11 +36,13 @@ class AuthFrame(ctk.CTkFrame):
         
         # On empêche le cadre de rétrécir à la taille de son contenu
         card.grid_propagate(False)
-        card.configure(height=450)
+        card.configure(height=490)
 
-        # Logo / Titre
-        ctk.CTkLabel(card, text="📚", font=ctk.CTkFont(size=40)).pack(pady=(40, 10))
-        ctk.CTkLabel(card, text="Bienvenue", font=ctk.CTkFont(size=24, weight="bold")).pack()
+        # Logo de l'app : carré dégradé bleu + livre au trait
+        ctk.CTkLabel(card, text="", image=get_logo(68),
+                     ).pack(pady=(40, 14))
+        ctk.CTkLabel(card, text="BiblioTech", font=ctk.CTkFont(size=28, weight="bold"), text_color="#2563EB").pack(pady=(0, 2))
+        ctk.CTkLabel(card, text="Bienvenue", font=ctk.CTkFont(size=18, weight="bold")).pack()
         ctk.CTkLabel(card, text="Connectez-vous à votre bibliothèque", text_color="gray50", font=ctk.CTkFont(size=12)).pack(pady=(0, 30))
 
         # Champs
@@ -73,10 +76,13 @@ class AuthFrame(ctk.CTkFrame):
         card.grid(row=0, column=0, pady=50)
         card.grid_columnconfigure(0, weight=1)
         card.grid_propagate(False)
-        card.configure(height=450)
+        card.configure(height=490)
 
-        ctk.CTkLabel(card, text="✨", font=ctk.CTkFont(size=40)).pack(pady=(40, 10))
-        ctk.CTkLabel(card, text="Inscription", font=ctk.CTkFont(size=24, weight="bold")).pack()
+        # Logo de l'app : carré dégradé bleu + livre au trait
+        ctk.CTkLabel(card, text="", image=get_logo(68),
+                     ).pack(pady=(40, 14))
+        ctk.CTkLabel(card, text="BiblioTech", font=ctk.CTkFont(size=28, weight="bold"), text_color="#2563EB").pack(pady=(0, 2))
+        ctk.CTkLabel(card, text="Inscription", font=ctk.CTkFont(size=18, weight="bold")).pack()
         ctk.CTkLabel(card, text="Créez votre compte lecteur", text_color="gray50", font=ctk.CTkFont(size=12)).pack(pady=(0, 30))
 
         self.reg_username_entry = ctk.CTkEntry(card, placeholder_text="Nom d'utilisateur", width=280, height=40, corner_radius=8)

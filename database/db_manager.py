@@ -66,7 +66,8 @@ class DatabaseManager:
             categorie         TEXT    NOT NULL,
             annee_publication INTEGER NOT NULL,
             quantite          INTEGER DEFAULT 1,
-            statut            TEXT    DEFAULT 'disponible'
+            statut            TEXT    DEFAULT 'disponible',
+            image_path        TEXT
         );
         """
 
@@ -137,6 +138,11 @@ class DatabaseManager:
         cursor.execute(sql_create_users)
         cursor.execute(sql_create_api_keys)
         cursor.execute(sql_create_activity_logs)
+        # Migration douce : ajoute image_path aux bases existantes sans la colonne
+        try:
+            cursor.execute("ALTER TABLE livres ADD COLUMN image_path TEXT")
+        except sqlite3.OperationalError:
+            pass  # colonne déjà présente
         cursor.executescript(sql_demo_data)
         cursor.executescript(sql_demo_users)
         conn.commit()
@@ -154,8 +160,8 @@ class DatabaseManager:
         lastrowid retourne l'ID auto-généré par SQLite.
         """
         sql = """
-        INSERT INTO livres (titre, auteur, categorie, annee_publication, quantite, statut)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO livres (titre, auteur, categorie, annee_publication, quantite, statut, image_path)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """
         conn = self._connect()
         cursor = conn.cursor()
@@ -258,7 +264,7 @@ class DatabaseManager:
         sql = """
         UPDATE livres
         SET titre = ?, auteur = ?, categorie = ?,
-            annee_publication = ?, quantite = ?, statut = ?
+            annee_publication = ?, quantite = ?, statut = ?, image_path = ?
         WHERE id = ?
         """
         conn = self._connect()

@@ -11,8 +11,9 @@ Usage:
     ctk.CTkButton(parent, image=img, text="Dashboard")
 """
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
 import customtkinter as ctk
+import os
 
 # Cache : (name, color, size) -> CTkImage
 _CACHE: dict = {}
@@ -302,6 +303,64 @@ def get_icon(name: str, color: str, size: int = 20) -> ctk.CTkImage:
 
     img = _icon_image(name, color, size)
     ck = ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
+    _CACHE[key] = ck
+    return ck
+
+
+def load_cover(path: str, size: tuple[int, int], radius: int = 12):
+    """
+    Charge une image de couverture, la recadre (cover) à la taille voulue
+    et arrondit les coins. Retourne une CTkImage, ou None si échec.
+    """
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        img = Image.open(path).convert("RGBA")
+        img = ImageOps.fit(img, size, Image.LANCZOS)
+        mask = Image.new("L", size, 0)
+        ImageDraw.Draw(mask).rounded_rectangle(
+            [0, 0, size[0] - 1, size[1] - 1], radius=radius, fill=255)
+        img.putalpha(mask)
+        return ctk.CTkImage(light_image=img, dark_image=img, size=size)
+    except Exception:
+        return None
+
+
+def get_logo(display: int = 44, top: str = "#3B82F6", bottom: str = "#1D4ED8",
+             icon: str = "book") -> ctk.CTkImage:
+    """
+    Logo de l'app : carré arrondi avec dégradé de bleu vertical + icône
+    blanche au trait au centre. Minimaliste et net (anti-aliasé).
+    """
+    key = ("logo", display, top, bottom, icon)
+    if key in _CACHE:
+        return _CACHE[key]
+
+    ss = 4
+    S = display * ss
+    t_col, b_col = _rgba(top), _rgba(bottom)
+
+    # Dégradé vertical (une ligne horizontale par rangée)
+    grad = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(grad)
+    for y in range(S):
+        f = y / (S - 1)
+        col = tuple(int(t_col[i] + (b_col[i] - t_col[i]) * f) for i in range(3)) + (255,)
+        gd.line([(0, y), (S, y)], fill=col)
+
+    # Masque "carré arrondi" pour découper le dégradé
+    mask = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        [0, 0, S - 1, S - 1], radius=int(S * 0.28), fill=255)
+    grad.putalpha(mask)
+
+    # Icône blanche centrée
+    isz = int(S * 0.5)
+    icon_img = _icon_image(icon, "#FFFFFF", isz)
+    grad.alpha_composite(icon_img, ((S - isz) // 2, (S - isz) // 2))
+
+    out = grad.resize((display, display), Image.LANCZOS)
+    ck = ctk.CTkImage(light_image=out, dark_image=out, size=(display, display))
     _CACHE[key] = ck
     return ck
 

@@ -8,8 +8,9 @@ Ce fichier contient toute la logique visuelle pour :
 """
 
 import customtkinter as ctk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from services.book_service import BookService
+from ui.icons import load_cover
 
 
 class BooksFrame(ctk.CTkFrame):
@@ -301,10 +302,11 @@ class BookFormDialog(ctk.CTkToplevel):
         self.book_id = book_id
         self.on_success = on_success
         self.parent_app = parent_app
+        self.image_path = None   # chemin de la couverture choisie
 
         title = "Ajouter un livre" if mode == "add" else "Modifier le livre"
         self.title(title)
-        self.geometry("500x520")
+        self.geometry("500x660")
         self.grab_set()  # Bloque la fenêtre principale
         self.resizable(False, False)
 
@@ -347,11 +349,63 @@ class BookFormDialog(ctk.CTkToplevel):
                           variable=self.statut_var
                           ).pack(fill="x")
 
+        # ── Image de couverture (optionnel) ─────────────────────
+        ctk.CTkLabel(form, text="Image de couverture (optionnel)", anchor="w",
+                     ).pack(fill="x", pady=(10, 2))
+        img_row = ctk.CTkFrame(form, fg_color="transparent")
+        img_row.pack(fill="x")
+
+        # Aperçu (vignette)
+        self.preview = ctk.CTkLabel(img_row, text="📕", width=64, height=84,
+                                    corner_radius=8, fg_color=("gray90", "gray25"))
+        self.preview.pack(side="left", padx=(0, 12))
+
+        btns = ctk.CTkFrame(img_row, fg_color="transparent")
+        btns.pack(side="left", fill="x", expand=True)
+        ctk.CTkButton(btns, text="📁  Choisir une image…",
+                      command=self._pick_image, height=34).pack(fill="x")
+        self.img_name = ctk.CTkLabel(btns, text="Aucune image", text_color="gray50",
+                                     font=ctk.CTkFont(size=11), anchor="w")
+        self.img_name.pack(fill="x", pady=(4, 0))
+        self.btn_clear = ctk.CTkButton(btns, text="Retirer l'image", height=28,
+                                       fg_color="transparent", text_color="#d9534f",
+                                       hover_color=("gray90", "gray20"),
+                                       command=self._clear_image)
+
         # Bouton de soumission
         btn_text = "Ajouter" if self.mode == "add" else "Enregistrer"
         ctk.CTkButton(self, text=btn_text,
                       command=self._submit, height=40
                       ).pack(pady=20, padx=30, fill="x")
+
+    def _pick_image(self):
+        """Ouvre un sélecteur de fichier image et met à jour l'aperçu."""
+        path = filedialog.askopenfilename(
+            title="Choisir une couverture",
+            filetypes=[("Images", "*.png *.jpg *.jpeg *.gif *.bmp *.webp"),
+                       ("Tous les fichiers", "*.*")],
+        )
+        if path:
+            self._set_image(path)
+
+    def _set_image(self, path):
+        """Applique un chemin d'image : aperçu + mémorisation."""
+        self.image_path = path
+        cover = load_cover(path, (64, 84), radius=8)
+        if cover:
+            self.preview.configure(image=cover, text="")
+            import os
+            self.img_name.configure(text=os.path.basename(path))
+            self.btn_clear.pack(fill="x", pady=(4, 0))
+        else:
+            self._clear_image()
+
+    def _clear_image(self):
+        """Retire l'image sélectionnée."""
+        self.image_path = None
+        self.preview.configure(image=None, text="📕")
+        self.img_name.configure(text="Aucune image")
+        self.btn_clear.pack_forget()
 
     def _load_book_data(self):
         """Pré-remplit le formulaire avec les données du livre existant."""
@@ -365,6 +419,8 @@ class BookFormDialog(ctk.CTkToplevel):
             self.entries["annee"].insert(0, str(book.annee))
             self.entries["quantite"].insert(0, str(book.quantite))
             self.statut_var.set(book.statut)
+            if book.image_path:
+                self._set_image(book.image_path)
 
     def _submit(self):
         """Valide et soumet le formulaire (ajout ou modification)."""
@@ -374,7 +430,8 @@ class BookFormDialog(ctk.CTkToplevel):
         if self.mode == "add":
             success, msg = self.book_service.add_book(
                 data["titre"], data["auteur"], data["categorie"],
-                data["annee"], data["quantite"], data["statut"]
+                data["annee"], data["quantite"], data["statut"],
+                image_path=self.image_path
             )
             if success and self.parent_app and hasattr(self.parent_app, 'current_user'):
                 from database.db_manager import DatabaseManager
@@ -389,7 +446,8 @@ class BookFormDialog(ctk.CTkToplevel):
         else:
             success, msg = self.book_service.update_book(
                 self.book_id, data["titre"], data["auteur"], data["categorie"],
-                data["annee"], data["quantite"], data["statut"]
+                data["annee"], data["quantite"], data["statut"],
+                image_path=self.image_path
             )
             if success and self.parent_app and hasattr(self.parent_app, 'current_user'):
                 from database.db_manager import DatabaseManager
