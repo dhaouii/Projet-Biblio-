@@ -2,8 +2,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getBooks, getStats } from '@/app/actions';
 import { NextResponse } from 'next/server';
 
-// Same key used in the python codebase
-const API_KEY = "AIzaSyCpBASEss_v8gD4AGMLt3UWiw5B60ylvCo";
+// La clé est lue depuis la variable d'environnement (jamais codée en dur).
+const API_KEY = process.env.GEMINI_API_KEY ?? "";
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 const SYSTEM_PROMPT = `Tu es l'assistant intelligent de la Bibliothèque Universitaire.

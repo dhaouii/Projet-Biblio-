@@ -44,12 +44,12 @@ Tu peux répondre à :
 
         self.db = DatabaseManager()
 
+        # Priorité : clé passée explicitement → base de données → variable
+        # d'environnement. AUCUNE clé n'est codée en dur (sécurité / GitHub).
         if api_key:
             self.api_key = api_key
         else:
-            self.api_key = self.db.get_api_key("gemini")
-            if not self.api_key:
-                self.api_key = "AIzaSyCpBASEss_v8gD4AGMLt3UWiw5B60ylvCo"
+            self.api_key = self.db.get_api_key("gemini") or os.environ.get("GEMINI_API_KEY")
 
         self.book_service = BookService()
         self.model = None
@@ -57,14 +57,23 @@ Tu peux répondre à :
 
         self._configure()
 
+    # Modèle unique fiable : alias "latest" qui pointe vers le modèle flash
+    # courant et dispose d'un quota gratuit (les variantes 2.0 figées sont
+    # souvent sans quota gratuit → 429).
+    MODEL = "gemini-flash-latest"
+
     def _configure(self):
-        """Configure l'API Gemini avec la clé forcée."""
+        """Configure l'API Gemini avec la clé courante."""
+        if not self.api_key:
+            print("[CHATBOT] Aucune clé API → mode hors-ligne. "
+                  "Ajoutez-en une via « Clé API Gemini » ou la variable GEMINI_API_KEY.")
+            self.is_configured = False
+            return
         try:
             genai.configure(api_key=self.api_key)
-            # Utilisation du modèle stable et rapide de Google
-            self.model = genai.GenerativeModel("gemini-1.5-flash")
+            self.model = genai.GenerativeModel(self.MODEL)
             self.is_configured = True
-            print("[CHATBOT] Connexion réussie à Google Gemini.")
+            print(f"[CHATBOT] Connexion réussie à Google Gemini ({self.MODEL}).")
         except Exception as e:
             print(f"[CHATBOT] Erreur de configuration Gemini: {e}")
             self.is_configured = False
@@ -100,17 +109,29 @@ Réponds en te basant UNIQUEMENT sur les données ci-dessus.
 """
 
         try:
-            # Appel direct aux serveurs de Google Gemini
+            # Appel direct à Gemini avec le modèle unique configuré
             response = self.model.generate_content(full_prompt)
             return response.text
 
         except Exception as e:
+            print(f"[CHATBOT] Erreur Gemini ({self.MODEL}) : {e}")
             error_msg = str(e)
+            low = error_msg.lower()
             # Détection et traitement des erreurs classiques d'API
-            if "API_KEY_INVALID" in error_msg or "400" in error_msg:
-                return "❌ Clé API invalide ou refusée par Google. Vérifiez vos restrictions d'API."
-            elif "quota" in error_msg.lower():
-                return "⚠️ Quota API gratuit dépassé. Réessayez dans une minute."
+            if "leaked" in low or "permission_denied" in low:
+                return ("🔒 Cette clé API a été bloquée par Google (signalée comme « fuitée »).\n"
+                        "Créez une NOUVELLE clé sur ai.google.dev, puis enregistrez-la "
+                        "via le bouton « Clé API Gemini ».")
+            elif "not found" in low or "404" in low:
+                return ("❌ Modèle Gemini introuvable (nom obsolète).\n"
+                        "Mettez à jour le modèle dans le code (ex: gemini-2.0-flash).")
+            elif "api_key_invalid" in low or "400" in low:
+                return "❌ Clé API invalide ou refusée par Google. Vérifiez votre clé."
+            elif "quota" in low or "resource_exhausted" in low or "429" in low:
+                return ("⚠️ Limite Gemini atteinte (quota gratuit).\n"
+                        "• Soit la limite par minute → attends ~60 s et réessaie.\n"
+                        "• Soit le quota journalier est épuisé → réessaie demain "
+                        "ou active la facturation sur ta clé.")
             else:
                 # En cas de coupure réseau ou problème imprévu, bascule sur le secours local
                 return self._offline_response(question)

@@ -1,0 +1,20 @@
+# Base de données locale — contient la clé API et les données : NE PAS publier
+library.db
+
+# Secrets / variables d'environnement
+.env
+.env.*
+
+# Caches Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Fichiers système macOS
+.DS_Store
+
+# Dépendances / build du sous-projet web (non utilisé pour le rendu Python)
+web/node_modules/
+web/.next/
